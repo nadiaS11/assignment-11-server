@@ -12,8 +12,6 @@ app.use(express.json());
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
       "https://namkeen-project.web.app",
       "https://namkeen-project.firebaseapp.com",
     ],
@@ -40,6 +38,7 @@ async function run() {
     // await client.connect();
 
     const foodCollection = await client.db("naamkeenDB").collection("foods");
+    const newCollection = await client.db("naamkeenDB").collection("newfoods");
     const userCollection = await client.db("naamkeenDB").collection("users");
     const orderCollection = await client
       .db("naamkeenDB")
@@ -103,7 +102,7 @@ async function run() {
     });
 
     //foods added by users
-    app.get("/api/v1/foods/added-by", verifyToken, async (req, res) => {
+    app.get("/api/v1/user/added-foods", verifyToken, async (req, res) => {
       const queryEmail = req.query.email;
       const tokenEmail = req.user.email;
       if (queryEmail !== tokenEmail) {
@@ -113,14 +112,14 @@ async function run() {
       if (queryEmail) {
         query.email = queryEmail;
       }
-      const cursor = foodCollection.find(query);
+      const cursor = newCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
     });
 
-    app.post("/api/v1/foods/added-by", async (req, res) => {
+    app.post("/api/v1/user/add-food", async (req, res) => {
       const foodInfo = req.body;
-      const result = await foodCollection.insertOne(foodInfo);
+      const result = await newCollection.insertOne(foodInfo);
       console.log(result);
       res.send(result);
     });
