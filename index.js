@@ -11,7 +11,12 @@ const port = process.env.PORT || 5000;
 app.use(express.json());
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://namkeen-project.web.app",
+      "https://namkeen-project.firebaseapp.com",
+    ],
     credentials: true,
   })
 );
@@ -32,7 +37,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const foodCollection = await client.db("naamkeenDB").collection("foods");
     const userCollection = await client.db("naamkeenDB").collection("users");
@@ -69,12 +74,13 @@ async function run() {
       res
         .cookie("token", token, {
           httpOnly: true,
-          secure: false,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         .send({ success: true });
     });
 
-    //get top 6 foods
+    //get top 6 foods sorted by order amount
     app.get("/api/v1/foods", async (req, res) => {
       let query = {};
       let sortObj = {};
@@ -96,6 +102,28 @@ async function run() {
       res.send(result);
     });
 
+    //foods added by users
+    app.get("/api/v1/foods/added-by", verifyToken, async (req, res) => {
+      const queryEmail = req.query.email;
+      const tokenEmail = req.user.email;
+      if (queryEmail !== tokenEmail) {
+        return res.status(403).send({ message: "forbidden" });
+      }
+      let query = {};
+      if (queryEmail) {
+        query.email = queryEmail;
+      }
+      const cursor = foodCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.post("/api/v1/foods/added-by", async (req, res) => {
+      const foodInfo = req.body;
+      const result = await foodCollection.insertOne(foodInfo);
+      console.log(result);
+      res.send(result);
+    });
     //pages
     app.get("/api/v1/foods/pages", async (req, res) => {
       //pagination
@@ -108,35 +136,39 @@ async function run() {
       res.send({ total, result });
     });
 
+    //user info in register page
     app.post("/api/v1/users", async (req, res) => {
       const userInfo = req.body;
       const result = await userCollection.insertOne(userInfo);
       console.log(result);
       res.send(result);
     });
-
+    //single food by id
     app.get("/api/v1/foods/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await foodCollection.findOne(query);
       res.send(result);
     });
-
+    //store users ordered food
     app.post("/api/v1/user/create-order", async (req, res) => {
       const orderItem = req.body;
 
       const result = await orderCollection.insertOne(orderItem);
       res.send(result);
     });
-
-    app.get("/api/v1/user/create-order", verifyToken, async (req, res) => {
+    //get user specific orders
+    app.get("/api/v1/user/orders", verifyToken, async (req, res) => {
       const queryEmail = req.query.email;
       const tokenEmail = req.user.email;
       if (queryEmail !== tokenEmail) {
         return res.status(403).send({ message: "forbidden" });
       }
-
-      const result = await orderCollection.findOne({ email: queryEmail });
+      let query = {};
+      if (queryEmail) {
+        query.email = queryEmail;
+      }
+      const result = await orderCollection.find(query).toArray();
       res.send(result);
     });
     app.delete("/api/v1/user/delete-order/:id", async (req, res) => {
