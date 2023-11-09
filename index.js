@@ -12,12 +12,29 @@ app.use(express.json());
 app.use(
   cors({
     origin: [
+      "http://localhost:5173",
       "https://namkeen-project.web.app",
       "https://namkeen-project.firebaseapp.com",
     ],
     credentials: true,
   })
 );
+app.use((req, res, next) => {
+  // CORS headers
+  res.header("Access-Control-Allow-Origin", "https://namkeen-project.web.app"); // restrict it to the required domain
+  res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS");
+  // Set custom headers for CORS
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-type,Accept,X-Custom-Header"
+  );
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  return next();
+});
 app.use(cookieParser());
 
 //mongodb connection
@@ -103,17 +120,25 @@ async function run() {
 
     //foods added by users
     app.get("/api/v1/user/added-foods", verifyToken, async (req, res) => {
-      const queryEmail = req.query.email;
+      const queryEmail = req.query.useremail;
       const tokenEmail = req.user.email;
       if (queryEmail !== tokenEmail) {
         return res.status(403).send({ message: "forbidden" });
       }
       let query = {};
+      console.log(queryEmail);
       if (queryEmail) {
-        query.email = queryEmail;
+        query.useremail = queryEmail;
       }
       const cursor = newCollection.find(query);
       const result = await cursor.toArray();
+      res.send(result);
+    });
+    //for update one food
+    app.get("/api/v1/user/added-foods/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await foodCollection.findOne(query);
       res.send(result);
     });
 
@@ -121,6 +146,31 @@ async function run() {
       const foodInfo = req.body;
       const result = await newCollection.insertOne(foodInfo);
       console.log(result);
+      res.send(result);
+    });
+    app.put("/api/v1/user/add-food/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const food = req.body;
+      console.log(food);
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+
+      console.log("from put", req.body);
+      const updateDoc = {
+        $set: {
+          foodname: food.foodname,
+          foodimage: food.foodimage,
+          foodcategory: food.foodcategory,
+          price: food.price,
+          madeby: food.madeby,
+          foodorigin: food.foodorigin,
+          description: food.description,
+          quantity: food.quantity,
+          strInstructions: food.strInstructions,
+        },
+      };
+      const result = await newCollection.updateOne(filter, updateDoc, options);
       res.send(result);
     });
     //pages
