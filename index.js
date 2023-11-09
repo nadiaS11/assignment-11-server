@@ -138,7 +138,7 @@ async function run() {
     app.get("/api/v1/user/added-foods/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      const result = await foodCollection.findOne(query);
+      const result = await newCollection.findOne(query);
       res.send(result);
     });
 
@@ -157,6 +157,7 @@ async function run() {
       const options = { upsert: true };
 
       console.log("from put", req.body);
+
       const updateDoc = {
         $set: {
           foodname: food.foodname,
